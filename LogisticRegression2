@@ -1,0 +1,67 @@
+# Install required packages
+!pip install scikit-learn gradio pandas numpy
+
+# Import necessary libraries
+import gradio as gr
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+
+# Create a sample dataset for car purchase prediction
+data = {
+    "Age": [22, 25, 47, 52, 46, 56, 55, 60, 62, 61, 18, 24, 29, 45, 57, 53, 35, 44, 50, 38],
+    "Annual_Income": [15000, 18000, 45000, 54000, 42000, 59000, 57000, 60000, 62000, 61000, 12000, 17000, 23000, 48000, 62000, 58000, 32000, 48000, 53000, 37000],
+    "Credit_Score": [600, 650, 720, 700, 690, 710, 680, 730, 740, 750, 590, 640, 620, 710, 730, 700, 670, 690, 720, 650],
+    "Gender": ["Male", "Female", "Female", "Male", "Male", "Female", "Male", "Female", "Female", "Male",
+               "Male", "Female", "Female", "Male", "Female", "Male", "Female", "Male", "Female", "Female"],
+    "Purchased": [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0]
+}
+
+# Load the data into a pandas DataFrame
+df = pd.DataFrame(data)
+
+# Encode Gender to numerical values (Male -> 1, Female -> 0)
+df['Gender'] = df['Gender'].apply(lambda x: 1 if x == 'Male' else 0)
+
+# Split the data into features and target
+X = df.drop('Purchased', axis=1)
+y = df['Purchased']
+
+# Split into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Standardize the data
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# Create and train the Logistic Regression model
+model = LogisticRegression(max_iter=200)
+model.fit(X_train, y_train)
+
+# Define the prediction function
+def predict_purchase(age, income, credit_score, gender):
+    gender_encoded = 1 if gender.lower() == "male" else 0
+    input_data = np.array([[age, income, credit_score, gender_encoded]])
+    input_data = scaler.transform(input_data)
+    prediction = model.predict(input_data)
+    return "✅ Likely to Purchase" if prediction[0] == 1 else "❌ Unlikely to Purchase"
+
+# Create Gradio interface
+interface = gr.Interface(
+    fn=predict_purchase,
+    inputs=[
+        gr.Number(label="Age"),
+        gr.Number(label="Annual Income ($)"),
+        gr.Number(label="Credit Score"),
+        gr.Radio(["Male", "Female"], label="Gender")
+    ],
+    outputs=gr.Textbox(label="Prediction"),
+    title="Car Purchase Prediction 🚗",
+    description="Enter customer information to predict whether they are likely to purchase a car."
+)
+
+# Launch the interface
+interface.launch()
