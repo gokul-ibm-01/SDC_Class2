@@ -1,0 +1,99 @@
+# Import necessary libraries
+import gradio as gr
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+
+# Create a sample weather dataset
+data = {
+    "Temperature": [30, 25, 28, 22, 35, 20, 18, 32, 27, 26, 15, 10, 8, 40, 38, 12, 22, 29, 31, 16],
+    "Humidity": [45, 60, 55, 80, 30, 85, 90, 40, 70, 65, 95, 92, 98, 20, 25, 99, 85, 50, 35, 97],
+    "Wind_Speed": [10, 5, 8, 20, 12, 25, 30, 9, 6, 7, 35, 40, 42, 5, 4, 38, 22, 11, 9, 41],
+    "Rainfall": [2, 15, 10, 50, 0, 60, 70, 1, 30, 25, 90, 100, 110, 0, 0, 120, 80, 12, 3, 105]
+}
+
+# Load the data into a pandas DataFrame
+df = pd.DataFrame(data)
+
+# Define features for clustering
+X = df[["Temperature", "Humidity", "Wind_Speed", "Rainfall"]]
+
+# Apply K-Means clustering with default 3 clusters
+kmeans = KMeans(n_clusters=3, random_state=42)
+kmeans.fit(X)
+
+# Add cluster labels to the DataFrame
+df["Cluster"] = kmeans.labels_
+
+# Define the prediction function
+def predict_weather(temp, humidity, wind_speed, rainfall, n_clusters):
+    # Prepare input data
+    input_data = np.array([[temp, humidity, wind_speed, rainfall]])
+
+    # Apply K-Means with the specified number of clusters
+    kmeans_new = KMeans(n_clusters=n_clusters, random_state=42)
+    kmeans_new.fit(X)
+
+    # Predict the cluster for the new input
+    cluster = kmeans_new.predict(input_data)[0]
+
+    # Define cluster labels (you can customize these)
+    weather_types = {
+        0: "🌞 Sunny & Dry",
+        1: "🌧️ Rainy & Humid",
+        2: "💨 Windy & Cool"
+    }
+
+    return f"🏷️ Assigned Weather Cluster: {weather_types.get(cluster, 'Unknown')}"
+
+# Define function to plot clusters
+def plot_clusters(n_clusters):
+    # Apply K-Means with specified clusters
+    kmeans_plot = KMeans(n_clusters=n_clusters, random_state=42)
+    df["Cluster"] = kmeans_plot.fit_predict(X)
+
+    # Create a scatter plot of the clusters
+    plt.figure(figsize=(8, 6))
+    for cluster in range(n_clusters):
+        cluster_data = df[df["Cluster"] == cluster]
+        plt.scatter(cluster_data["Temperature"], cluster_data["Humidity"], label=f"Cluster {cluster}")
+
+    plt.scatter(kmeans_plot.cluster_centers_[:, 0], kmeans_plot.cluster_centers_[:, 1], s=200, c="red", marker="X", label="Centroids")
+    plt.xlabel("Temperature (°C)")
+    plt.ylabel("Humidity (%)")
+    plt.title(f"Weather Patterns with {n_clusters} Clusters")
+    plt.legend()
+
+    # Save the plot as an image
+    plt.savefig("weather_clusters.png")
+    plt.close()
+    return "weather_clusters.png"
+
+# Create Gradio interface
+with gr.Blocks() as interface:
+    gr.Markdown("# 🌦️ K-Means Weather Pattern Classification")
+    gr.Markdown("Enter weather details to predict the cluster and visualize clusters.")
+
+    with gr.Row():
+        temp = gr.Number(label="Temperature (°C)")
+        humidity = gr.Number(label="Humidity (%)")
+
+    with gr.Row():
+        wind_speed = gr.Number(label="Wind Speed (km/h)")
+        rainfall = gr.Number(label="Rainfall (mm)")
+
+    n_clusters = gr.Slider(2, 6, value=3, step=1, label="Number of Clusters (K)")
+
+    with gr.Row():
+        predict_btn = gr.Button("Predict Weather Cluster 🏷️")
+        plot_btn = gr.Button("Show Cluster Plot 📊")
+
+    result_text = gr.Textbox(label="Weather Cluster Prediction")
+    cluster_plot = gr.Image(label="Cluster Plot")
+
+    predict_btn.click(predict_weather, inputs=[temp, humidity, wind_speed, rainfall, n_clusters], outputs=result_text)
+    plot_btn.click(plot_clusters, inputs=n_clusters, outputs=cluster_plot)
+
+# Launch the interface
+interface.launch()
